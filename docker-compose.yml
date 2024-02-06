@@ -1,4 +1,4 @@
-version: '3'
+version: '3.3'
 
 networks:
   dock_net:
@@ -10,39 +10,59 @@ networks:
         - subnet: 172.16.0.0/16
 
 
-servirce:
-  mysql_master:
-    image: mysql_image:master
-    user: root
-    build:
-      context: ./master
-      dockerfile: Dockerfile
-    stdin_open: true
-    tty: true
+services:
+  db_master:
+    image: mysql:latest
+    container_name: db_master
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+    volumes:
+      - ./master/data:/var/lib/mysql
+      - ./master/config/:/etc/mysql/conf.d
     ports:
       - 13306:3306
     networks:
       dock_net:
         ipv4_address: 172.16.0.10
-    container_name: mysql_master
-    restart: always
 
-  mysql_slave:
-    image: mysql_image:slave
-    build:
-      context: ./slave
-      dockerfile: Dockerfile
-    user: root
-    stdin_open: true
-    tty: true
+  db_slave:
+    image: mysql:latest
+    container_name: db_slave
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+    volumes:
+      - ./slave/data:/var/lib/mysql
+      - ./slave/config/:/et/mysql/conf.d
     ports:
       - 13307:3306
     networks:
       dock_net:
         ipv4_address: 172.16.0.11
     depends_on:
-      - mysql_mater
-    container_name: mysql_slave
+      - db_master
+
+
+# master
+# CREATE USER 'repluser'@'%' IDENTIFIED BY 'replpw';
+# GRANT REPLICATION SLAVE ON *.* TO 'repluser'@'%';
+# CREATE TABLE repltable ( no INT(8), PRIMARY KEY (no) );
+# DESC reptable;
+# mysqldump -u root -p repldb > dump.sql 
+
+# docker -> local
+# docker cp {container_name}:/test.txt /test/
+# docker cp test.txt {container_name}:/test
+
+# slave
+# CREATE DATABASE repldb;
+# mysql -u root -p repldb < dump.sql
+
+# slave 서버에서 master 연동하기
+# SHOW MASTER status\G;
+# CHANGE MASTER TO MASTER_HOST='mysql-master', MASTER_USER='repluser', MASTER_PASSWORD='replpw', MASTER_LOG_FILE='mysql-bin.000003', MASTER_LOG_POS=1111;
+# SHOW SLAVE status\G;
 
     
 
